@@ -12,13 +12,13 @@ services:
       - "8081:8081"  # Additional port if needed
     environment:
       # SQL Server Connection String
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=APIN5DB;User Id=sa;Password=${YOUR_STRONG_PASSWORD};TrustServerCertificate=True;
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=APIN5DB;User Id=sa;Password=${SQL_STRONG_PASSWORD};TrustServerCertificate=True;
       
       # Elasticsearch Configuration
       - Elasticsearch__Url=http://elasticsearch:9200
-      - Elasticsearch__Index=${your_index_name}
+      - Elasticsearch__Index=${INDEX_NAME}
       - Elasticsearch__Username=elastic
-      - Elasticsearch__Password=${your_elastic_password}
+      - Elasticsearch__Password=${ELASTIC_PASSWORD}
       
       # Kafka Configuration
       - Kafka__Broker=kafka:9092
@@ -38,7 +38,7 @@ services:
     container_name: sqlserver
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=${YOUR_STRONG_PASSWORD}  
+      - SA_PASSWORD=${SQL_STRONG_PASSWORD}  
       - MSSQL_PID=Developer  
     ports:
       - "1433:1433"
@@ -57,7 +57,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=${your_elastic_password}  # Secure password for 'elastic' user
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}  # Secure password for 'elastic' user
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Memory settings
     ulimits:
