@@ -1,0 +1,127 @@
+version: '3.3'
+
+services:
+  # ASP.NET Core Web API
+  webapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webapi
+    ports:
+      - "8080:8080"  # Application HTTP port
+      - "8081:8081"  # Additional port if needed
+    environment:
+      # SQL Server Connection String
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=APIN5DB;User Id=sa;Password=YourStrong_Passw0rd;TrustServerCertificate=True;
+      
+      # Elasticsearch Configuration
+      - Elasticsearch__Url=http://elasticsearch:9200
+      - Elasticsearch__Index=your_index_name
+      - Elasticsearch__Username=elastic
+      - Elasticsearch__Password=ElastiC_docker.842
+      
+      # Kafka Configuration
+      - Kafka__Broker=kafka:9092
+      - Kafka__Topic=operations
+    depends_on:
+      - sqlserver
+      - elasticsearch
+      - kafka
+    networks:
+      - app-network
+    restart: unless-stopped
+    entrypoint: ["dotnet", "WebAPIN5.dll"] 
+
+  # SQL Server 2019
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong_Passw0rd  # Ensure this meets SQL Server's password requirements
+      - MSSQL_PID=Developer  # Optional: Specify the edition (e.g., Express, Developer)
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql  # Persistent storage for SQL Server
+      - ./scripts:/docker-entrypoint-initdb.d  # Mount the directory containing SQL scripts
+    networks:
+      - app-network
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "/docker-entrypoint-initdb.d/run-sql.sh"]
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.10
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=ElastiC_docker.842  # Secure password for 'elastic' user
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Memory settings
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - esdata:/usr/share/elasticsearch/data  # Persistent storage for Elasticsearch
+    ports:
+      - "9200:9200"  # Elasticsearch REST API
+      - "9300:9300"  # Elasticsearch Transport API
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Zookeeper (Official Image)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1  # Official Zookeeper image
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Kafka (Official Image)
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1  # Official Kafka image
+    container_name: kafka
+    ports:
+      - "9092:9092"  # Kafka broker port for internal communication
+      - "29092:29092"  # External access on port 29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CREATE_TOPICS: "operations:1:1"  # topicName:partitions:replicationFactor
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+    restart: unless-stopped
+
+
+# Define Docker Networks
+networks:
+  app-network:
+    driver: bridge
+
+# Define Docker Volumes for Persistence
+volumes:
+  esdata:
+    driver: local
+  sqlserver-data:
+    driver: local
