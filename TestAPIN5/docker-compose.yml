@@ -12,13 +12,13 @@ services:
       - "8081:8081"  # Additional port if needed
     environment:
       # SQL Server Connection String
-      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=APIN5DB;User Id=sa;Password=YourStrong_Passw0rd;TrustServerCertificate=True;
+      - ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=APIN5DB;User Id=sa;Password=${YOUR_STRONG_PASSWORD};TrustServerCertificate=True;
       
       # Elasticsearch Configuration
       - Elasticsearch__Url=http://elasticsearch:9200
-      - Elasticsearch__Index=your_index_name
+      - Elasticsearch__Index=${your_index_name}
       - Elasticsearch__Username=elastic
-      - Elasticsearch__Password=ElastiC_docker.842
+      - Elasticsearch__Password=${your_elastic_password}
       
       # Kafka Configuration
       - Kafka__Broker=kafka:9092
@@ -38,13 +38,13 @@ services:
     container_name: sqlserver
     environment:
       - ACCEPT_EULA=Y
-      - SA_PASSWORD=YourStrong_Passw0rd  # Ensure this meets SQL Server's password requirements
-      - MSSQL_PID=Developer  # Optional: Specify the edition (e.g., Express, Developer)
+      - SA_PASSWORD=${YOUR_STRONG_PASSWORD}  
+      - MSSQL_PID=Developer  
     ports:
       - "1433:1433"
     volumes:
-      - sqlserver-data:/var/opt/mssql  # Persistent storage for SQL Server
-      - ./scripts:/docker-entrypoint-initdb.d  # Mount the directory containing SQL scripts
+      - sqlserver-data:/var/opt/mssql  
+      - ./scripts:/docker-entrypoint-initdb.d  
     networks:
       - app-network
     restart: unless-stopped
@@ -57,7 +57,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=ElastiC_docker.842  # Secure password for 'elastic' user
+      - ELASTIC_PASSWORD=${your_elastic_password}  # Secure password for 'elastic' user
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"  # Memory settings
     ulimits:
@@ -80,7 +80,7 @@ services:
 
   # Zookeeper (Official Image)
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.1  # Official Zookeeper image
+    image: confluentinc/cp-zookeeper:7.4.1  
     container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
@@ -93,7 +93,7 @@ services:
 
   # Kafka (Official Image)
   kafka:
-    image: confluentinc/cp-kafka:7.4.1  # Official Kafka image
+    image: confluentinc/cp-kafka:7.4.1  
     container_name: kafka
     ports:
       - "9092:9092"  # Kafka broker port for internal communication
