@@ -365,6 +365,9 @@ FodyWeavers.xsd
 #Docker
 Docker/
 
+#environment variable file
+.env
+
 bin/
 
 obj/

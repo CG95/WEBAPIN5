@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TestAPIN5\WebAPIN5.csproj" />
+    <ProjectReference Include="..\WebAPIN5\WebAPIN5.csproj" />
   </ItemGroup>
 
   <ItemGroup>
