@@ -51,32 +51,44 @@ namespace WebAPIN5.Controllers
 
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for RequestPermission: {ModelState}", ModelState);
                 return BadRequest(ModelState);
             }
-            var permission = new Permission
+            try
             {
-                EmployeeForename = permissionDTO.EmployeeForename,
-                EmployeeSurname = permissionDTO.EmployeeSurname,
-                PermissionTypeId = permissionDTO.PermissionTypeId,
-                PermissionDate = permissionDTO.PermissionDate,
-            };
 
-            //Handle CQRS command for creation
-            await _createPermissionCommand.HandleAsync(permission);
+                 var permission = new Permission
+                 {
+                    EmployeeForename = permissionDTO.EmployeeForename,
+                    EmployeeSurname = permissionDTO.EmployeeSurname,
+                    PermissionTypeId = permissionDTO.PermissionTypeId,
+                    PermissionDate = permissionDTO.PermissionDate,
+                 };
 
-            //publish kafka message to topic operations
-            var operationMessage = new OperationMessageDTO
+                //Handle CQRS command for creation
+                await _createPermissionCommand.HandleAsync(permission);
+
+                //publish kafka message to topic operations
+                var operationMessage = new OperationMessageDTO
+                {
+                    Id = Guid.NewGuid(),
+                    OperationName = "request"
+                };
+
+                await _kafkaProducer.ProduceAsync(operationMessage);
+
+                // Persist permission to Elasticsearch
+                await _elasticsearchService.IndexPermissionAsync(permission);
+
+                _logger.LogInformation("Permission created successfully with ID: {PermissionId}", permission.Id);
+                return Ok(new { Message = "Permission created successfully", PermissionId = permission.Id });
+                //return Ok("Permission created successfully");
+            }
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                OperationName = "request"
-            };
-
-            await _kafkaProducer.ProduceAsync(operationMessage);
-
-            // Persist permission to Elasticsearch
-            await _elasticsearchService.IndexPermissionAsync(permission);
-
-            return Ok("Permission created successfully");
+                _logger.LogError(ex, "An error occurred while requesting permission.");
+                return StatusCode(500, "An error occurred while processing your request.");
+            }
 
         }
 
@@ -87,34 +99,44 @@ namespace WebAPIN5.Controllers
             _logger.LogInformation("Executing: {operation}", nameof(ModifyPermission));
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for ModifyPermission: {ModelState}", ModelState);
                 return BadRequest(ModelState.IsValid);
             }
 
-            var permission = new Permission
+            try
             {
-                Id = id,
-                EmployeeForename = permissionDTO.EmployeeForename,
-                EmployeeSurname = permissionDTO.EmployeeSurname,
-                PermissionTypeId = permissionDTO.PermissionTypeId,
-                PermissionDate = permissionDTO.PermissionDate,
-            };
+                var permission = new Permission
+                {
+                    Id = id,
+                    EmployeeForename = permissionDTO.EmployeeForename,
+                    EmployeeSurname = permissionDTO.EmployeeSurname,
+                    PermissionTypeId = permissionDTO.PermissionTypeId,
+                    PermissionDate = permissionDTO.PermissionDate,
+                };
 
-            // Handle CQRS command for modification
-            await _modifyPermissionCommand.HandleAsync(permission);
+                // Handle CQRS command for modification
+                await _modifyPermissionCommand.HandleAsync(permission);
 
-            //publish kafka message to topic operations
-            var operationMessage = new OperationMessageDTO
+                //publish kafka message to topic operations
+                var operationMessage = new OperationMessageDTO
+                {
+                    Id = Guid.NewGuid(),
+                    OperationName = "modify"
+                };
+
+                // Persist modified permission to Elasticsearch
+                await _elasticsearchService.IndexPermissionAsync(permission);
+
+                await _kafkaProducer.ProduceAsync(operationMessage);
+
+                _logger.LogInformation("Permission modified successfully with ID: {PermissionId}", permission.Id);
+                return Ok(new { Message = "Permission modified successfully", PermissionId = permission.Id });
+            }
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                OperationName = "modify"
-            };
-
-            // Persist modified permission to Elasticsearch
-            await _elasticsearchService.IndexPermissionAsync(permission);
-
-            await _kafkaProducer.ProduceAsync(operationMessage);
-
-            return Ok("Permission modified successfully");
+                _logger.LogError(ex, "An error occurred while modifying permission.");
+                return StatusCode(500, "An error occurred while processing your request.");
+            }
 
         }
 
@@ -126,29 +148,40 @@ namespace WebAPIN5.Controllers
 
             _logger.LogInformation("Executing: {operation}", nameof(GetPermissions));
 
-            // Handle CQRS query to fetch all permissions
-            var permissions = await _getAllPermissionsQuery.ExecuteAsync();
-            var permissionsDTO = permissions.Select(p => new PermissionDTO
+
+            try
             {
-                Id = p.Id,
-                EmployeeForename = p.EmployeeForename,
-                EmployeeSurname = p.EmployeeSurname,
-                PermissionTypeId = p.PermissionTypeId,
-                PermissionDate = p.PermissionDate,
-            }).ToList();
-            // Send message to Kafka
-            var operationMessage = new OperationMessageDTO
+                // Handle CQRS query to fetch all permissions
+                var permissions = await _getAllPermissionsQuery.ExecuteAsync();
+                var permissionsDTO = permissions.Select(p => new PermissionDTO
+                {
+                    Id = p.Id,
+                    EmployeeForename = p.EmployeeForename,
+                    EmployeeSurname = p.EmployeeSurname,
+                    PermissionTypeId = p.PermissionTypeId,
+                    PermissionDate = p.PermissionDate,
+                }).ToList();
+                // Send message to Kafka
+                var operationMessage = new OperationMessageDTO
+                {
+                    Id = Guid.NewGuid(),
+                    OperationName = "get"
+                };
+
+                _logger.LogInformation("Sending to kafka the following message:{dto}", operationMessage.ToString());
+
+                await _kafkaProducer.ProduceAsync(operationMessage);
+
+                _logger.LogInformation("Retrieved {Count} permissions successfully.", permissionsDTO.Count);
+                return Ok(permissionsDTO);
+            }
+            catch (Exception ex)
             {
-                Id = Guid.NewGuid(),
-                OperationName = "get"
-            };
+                _logger.LogError(ex, "An error occurred while fetching permissions.");
+                return StatusCode(500, "An error occurred while processing your request.");
 
-            _logger.LogInformation("Sending to kafka the following message:{dto}", operationMessage.ToString());
 
-            await _kafkaProducer.ProduceAsync(operationMessage);
-
-            return Ok(permissionsDTO);
-
+            }
         }
 
 
