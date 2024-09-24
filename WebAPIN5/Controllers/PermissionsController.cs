@@ -100,7 +100,7 @@ namespace WebAPIN5.Controllers
             if (!ModelState.IsValid)
             {
                 _logger.LogWarning("Invalid model state for ModifyPermission: {ModelState}", ModelState);
-                return BadRequest(ModelState.IsValid);
+                return BadRequest(ModelState);
             }
 
             try

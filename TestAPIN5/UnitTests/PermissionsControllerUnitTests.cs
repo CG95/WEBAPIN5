@@ -11,6 +11,7 @@ using WebAPIN5.Models;
 using WebAPIN5.Repositories;
 using Nest;
 using Confluent.Kafka;
+using NuGet.Protocol;
 
 namespace TestAPIN5.UnitTests
 {
@@ -138,8 +139,39 @@ namespace TestAPIN5.UnitTests
 
             // Assert
             var okResult = Assert.IsType<OkObjectResult>(result);
-            Assert.Equal("Permission modified successfully", okResult.Value);
+
+            var response = okResult.Value as dynamic;
+
+            // Check the properties in the response object
+            Assert.Equal("Permission modified successfully", (string)response.Message);
         }
+
+        [Fact]
+        public async Task ModifyPermission_InvalidModel_ReturnsBadRequest()
+        {
+            // Arrange
+            _controller.ModelState.AddModelError("EmployeeForename", "Required");
+
+            var permissionDto = new PermissionDTO
+            {
+                EmployeeForename = "",
+                EmployeeSurname = "Doe",
+                PermissionTypeId = 1,
+                PermissionDate = DateTime.UtcNow
+            };
+
+            // Act
+            var result = await _controller.ModifyPermission(1, permissionDto);
+
+            // Assert
+            var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+            var errorResponse = badRequestResult.Value as SerializableError;
+
+            // Check that the error message is related to the EmployeeForename field
+            Assert.NotNull(errorResponse);
+            Assert.True(errorResponse.ContainsKey("EmployeeForename"));
+        }
+
 
         [Fact]
         public async Task GetPermissions_ReturnsOkResult()
